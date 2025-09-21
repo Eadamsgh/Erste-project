@@ -23,7 +23,8 @@ import {
   Filter,
   UserPlus,
   Settings,
-  LogOut
+  LogOut,
+  Clock
 } from "lucide-react"
 
 interface User {
