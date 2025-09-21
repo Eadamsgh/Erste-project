@@ -1,0 +1,171 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  phone     String?  @unique
+  role      UserRole @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Customer relations
+  bookings  Booking[]
+  reviews   Review[] @relation("CustomerReview")
+  payments  Payment[]
+
+  // Cleaner relations
+  cleanerProfile CleanerProfile?
+  assignedBookings Booking[] @relation("CleanerBookings")
+  cleanerReviews  Review[] @relation("CleanerReview")
+
+  @@map("users")
+}
+
+model CleanerProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  bio         String?
+  experience  Int?    // years of experience
+  rating      Float   @default(0.0)
+  isAvailable Boolean @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("cleaner_profiles")
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  basePrice   Float    // in GHS
+  duration    Int      // in minutes
+  category    ServiceCategory
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings    Booking[]
+
+  @@map("services")
+}
+
+model Booking {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceId   String
+  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  address     String
+  city        String
+  date        DateTime
+  timeSlot    String      // e.g., "09:00-11:00"
+  status      BookingStatus @default(PENDING)
+  
+  totalPrice  Float
+  notes       String?
+  
+  cleanerId   String?
+  cleaner     User?      @relation("CleanerBookings", fields: [cleanerId], references: [id])
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  payments    Payment[]
+  reviews     Review[]
+
+  @@map("bookings")
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  bookingId   String
+  booking     Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount      Float
+  method      PaymentMethod
+  status      PaymentStatus @default(PENDING)
+  transactionId String?
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("payments")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation("CustomerReview", fields: [userId], references: [id], onDelete: Cascade)
+  cleanerId   String
+  cleaner     User     @relation("CleanerReview", fields: [cleanerId], references: [id], onDelete: Cascade)
+  
+  rating      Int      // 1-5 stars
+  comment     String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bookingId, userId])
+  @@map("reviews")
+}
+
+enum UserRole {
+  CUSTOMER
+  CLEANER
+  ADMIN
+}
+
+enum ServiceCategory {
+  HOME_CLEANING
+  DEEP_CLEANING
+  OFFICE_CLEANING
+  CARPET_CLEANING
+  WINDOW_CLEANING
+  LAUNDRY_SERVICE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentMethod {
+  MOBILE_MONEY
+  CASH
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
